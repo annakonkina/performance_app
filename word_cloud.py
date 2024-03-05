@@ -1,6 +1,6 @@
 from wordcloud import WordCloud
 from deep_translator import GoogleTranslator
-from nltk.stem import WordNetLemmatizer
+# from nltk.stem import WordNetLemmatizer
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
