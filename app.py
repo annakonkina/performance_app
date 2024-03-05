@@ -67,6 +67,11 @@ open_questions = ans[(ans.type.isin(['open', 'open_end'])) & (ans.position != 's
 scaled_questions = ans[(ans.type == 'scaled') & (ans.position != 'screener')].question.unique().tolist()
 screener_questions = ans[ans.position == 'screener'].question.unique().tolist()
 
+screener_questions_rename = {i:i.replace('_', ' ').split()[0] for i in screener_questions}
+ans['question'] = ans['question'].apply(lambda x: screener_questions_rename.get(x,x))
+screener_questions = [screener_questions_rename[i] for i in screener_questions]
+del screener_questions_rename
+
 def make_flat(l2d):
     new_list = list(itertools.chain.from_iterable(l2d))
     return new_list
@@ -95,7 +100,12 @@ def b64_image(image_filename):
 
 load_figure_template("superhero")
 
-app = Dash(__name__, external_stylesheets=[dbc.themes.SUPERHERO, dbc_css])
+app = Dash(__name__, 
+           external_stylesheets=[dbc.themes.SUPERHERO, dbc_css],
+          meta_tags=[
+              {"name": "viewport", "content": "width=device-width, initial-scale=1"}
+          ],
+      )
 # Reference the underlying flask app (Used by gunicorn webserver in Heroku production deployment)
 server = app.server 
 # Enable Whitenoise for serving static files from Heroku (the /static folder is seen as root by Heroku) 
