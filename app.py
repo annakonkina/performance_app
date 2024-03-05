@@ -21,9 +21,7 @@ import io
 
 from wordcloud import WordCloud
 from deep_translator import GoogleTranslator
-# from nltk.stem import WordNetLemmatizer
-# from nltk.corpus import stopwords
-# import webbrowser
+from whitenoise import WhiteNoise   #for serving static files on Heroku
 
 
 from share_functions import *
@@ -95,9 +93,13 @@ def b64_image(image_filename):
         image = f.read()
         return 'data:image/png;base64,' + base64.b64encode(image).decode('utf-8')
 
-load_figure_template("SUPERHERO")
+load_figure_template("superhero")
 
-app = Dash(__name__, external_stylesheets=[dbc.themes.SUPERHERO, dbc_css])#
+app = Dash(__name__, external_stylesheets=[dbc.themes.SUPERHERO, dbc_css])
+# Reference the underlying flask app (Used by gunicorn webserver in Heroku production deployment)
+server = app.server 
+# Enable Whitenoise for serving static files from Heroku (the /static folder is seen as root by Heroku) 
+server.wsgi_app = WhiteNoise(server.wsgi_app, root='static/') 
 
 heading = html.Div([
     html.Img(src=b64_image(image_path), style={'width': '100%', 'height': 'auto'}),#
@@ -1369,6 +1371,6 @@ def wordcloud(input_exp, input_question, n_clicks, added, removed, *selected_opt
         
     return output
 
-
-if __name__ == '__main__':
-    app.run_server(debug=True)
+# Run flask app
+if __name__ == "__main__": 
+    app.run_server(debug=False, host='0.0.0.0', port=8050)
