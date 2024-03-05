@@ -12,8 +12,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
-import itertools
 
+import itertools
 import os
 from textwrap import wrap
 import base64
@@ -23,7 +23,7 @@ from wordcloud import WordCloud
 from deep_translator import GoogleTranslator
 # from nltk.stem import WordNetLemmatizer
 # from nltk.corpus import stopwords
-import webbrowser
+# import webbrowser
 
 
 from share_functions import *
@@ -524,13 +524,13 @@ def dd_brand_product_ps(radio):
         output = ['All options'] + act[act['product'] != '-']['product'].unique().tolist()
     return output
 
-@app.callback(Output('dd_scaled', 'options'), Input('radio_grouped_parameter_scaled', 'value'))
-def dd_brand_product_scaled(radio):
-    if radio == 'brand':
-        output = ['All options'] + act[act['brand'] != '-']['brand'].unique().tolist()
-    else:
-        output = ['All options'] + act[act['product'] != '-']['product'].unique().tolist()
-    return output
+# @app.callback(Output('dd_scaled', 'options'), Input('radio_grouped_parameter_scaled', 'value'))
+# def dd_brand_product_scaled(radio):
+#     if radio == 'brand':
+#         output = ['All options'] + act[act['brand'] != '-']['brand'].unique().tolist()
+#     else:
+#         output = ['All options'] + act[act['product'] != '-']['product'].unique().tolist()
+#     return output
 
 # OPENING/BUYING RATE line
 @app.callback(
