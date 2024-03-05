@@ -76,14 +76,21 @@ def make_flat(l2d):
     new_list = list(itertools.chain.from_iterable(l2d))
     return new_list
 screener_options = {}
+screener_options_height = {}
 for q in screener_questions:
     if ans[(ans.answer != '-') & (ans.question == q)].answer.nunique() > 1:
         if ans[ans.question == q].type.unique()[0] == 'multiple':
             screener_options[q] = ans[(ans.answer != '-') & (ans.question == q)].answer.unique().tolist()
-    #         all_replies = ans[(ans.answer != '-') & (ans.question == q)].answer.unique().tolist()
-    #         screener_options[q] = [*set(make_flat([i.strip() for i in all_replies.split('|')]))]
         if ans[ans.question == q].type.unique()[0] == 'single':
             screener_options[q] = ans[(ans.answer != '-') & (ans.question == q)].answer.unique().tolist()
+            
+        longest_a = max(ans[(ans.answer != '-') & (ans.question == q)].answer.unique().tolist(), key=len)
+        if len(longest_a) <= 25:
+            screener_options_height[q] = 45
+        elif len(longest_a) > 25 and len(longest_a) <= 50:
+            screener_options_height[q] = 90
+        else:
+            screener_options_height[q] = 140
     
 if len(open_questions) == 0:
     open_questions = ['-']
