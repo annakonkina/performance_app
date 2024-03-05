@@ -137,7 +137,7 @@ breakouts_filter = dbc.Card(
                     sorted(screener_options[q]) + ['All options'],
                     ['All options'],
                     multi=True,
-                    optionHeight=45,#default = 35
+                    optionHeight=screener_options_height.get(q, 45),
                     id=f"{q}")],
                 sm=12, lg=2, md=2, xs=12,
                 className='dbc'
