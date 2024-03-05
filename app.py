@@ -120,43 +120,32 @@ heading = html.Div([
 # https://dashcheatsheet.pythonanywhere.com/
 
 breakouts_filter = dbc.Card(
-            [
-                dbc.Row([dbc.Col(html.H5('Select breakouts (optionally)'))], className='dbc'),
-                dbc.Row(
-                [
-                    *[dbc.Col(
-                        [html.Label([q.capitalize()], style={'font-weight': 'bold', "text-align": "center"}),
-                         dcc.Dropdown(
-                        sorted(screener_options[q]) + ['All options'],
-                        ['All options'],
-                        multi=True,
-                        optionHeight=45,#default = 35
-                        id=f"{q}")],
-                        width = 2,
-                        className='dbc'
-                            ) for q in list(screener_options.keys())[:6]],
-                    *[dbc.Col(
-                        [html.Label([q.capitalize()], style={'font-weight': 'bold', "text-align": "center"}),
-                         dcc.Dropdown(
-                        sorted(screener_options[q]) + ['All options'],
-                        ['All options'],
-                        multi=True,
-                        optionHeight=45,#default = 35
-                        id=f"{q}")],
-                        width = 2,
-                        className='dbc'
-                            ) for q in list(screener_options.keys())[6:]],
+    [
+        dbc.Row([dbc.Col(html.H5('Select breakouts (optionally)'))], className='dbc'),
+        dbc.Row(
+        [
+            *[dbc.Col(
+                    [html.Label([q.capitalize()], style={'font-weight': 'bold', "text-align": "center"}),
+                     dcc.Dropdown(
+                    sorted(screener_options[q]) + ['All options'],
+                    ['All options'],
+                    multi=True,
+                    optionHeight=45,#default = 35
+                    id=f"{q}")],
+                sm=12, lg=2, md=2, xs=12,
+                className='dbc'
+                    ) for q in screener_options.keys()],
+        ]),
+    ],
+    className="transparent-card",
+    style={'background-color': 'transparent', 
+           'box-shadow': 'none', 
+           'border': '1px solid #f28718',
+            'margin-top': 5,
+            'padding-top': 5,
+          },
+)
 
-                        ]
-                        )],
-            className="transparent-card",
-            style={'background-color': 'transparent', 
-               'box-shadow': 'none', 
-               'border': '1px solid #f28718',
-                'margin-top': 5,
-                'padding-top': 5,
-              },
-        )
 performance_row = dbc.Container([
     # filter col 1
     dbc.Col(dbc.Card([
