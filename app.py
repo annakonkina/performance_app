@@ -490,7 +490,7 @@ app.layout = dbc.Container(
 #                                 scaled_row,
                                 wc_row
                            ], 
-                           style={'padding-right': 5, 'padding-left': 5}
+                           style={'padding-right': 10, 'padding-left': 10}
 )
 
 # Function to map categories to colors
