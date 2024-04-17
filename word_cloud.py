@@ -1,9 +1,10 @@
 from wordcloud import WordCloud
 from deep_translator import GoogleTranslator
-# from nltk.stem import WordNetLemmatizer
+from nltk.stem import WordNetLemmatizer
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
+import nltk
 # from nltk.corpus import stopwords
 
 def calc_wordcloud(df, stop_words, translation=None, width=1200, height=600,
@@ -21,13 +22,12 @@ def calc_wordcloud(df, stop_words, translation=None, width=1200, height=600,
     if translation:
         words = words.apply(lambda x: GoogleTranslator(source=translation, target='english').translate(x)) # translation 
 
-    for i in ['-', '  ', '’', "\'", '.', ',']: # drop extra symbols
-        words = words.str.replace(i, '', regex=True) 
-        
-    # for i in range(len(words)):
-    #     words[i] = ' '.join([WordNetLemmatizer().lemmatize(b,'v') for b in words[i].split(' ')])
-
     text = ' '.join(list(words)) # joining the answers to one str
+    
+    for i in ['-', '  ', '’', "\'", '.', ',']: # drop extra symbols
+        text = text.replace(i, '') 
+        
+    text = ' '.join([WordNetLemmatizer().lemmatize(b,'v') for b in text.split(' ')])
 
     wordcloud = WordCloud(
         width=width, height=height, 
