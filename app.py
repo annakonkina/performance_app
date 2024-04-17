@@ -66,7 +66,6 @@ act = pd.read_csv("./data/act_dashboard_52.csv", low_memory=False)
 ans = pd.read_csv("./data/ans_dashboard_52.csv", low_memory=False)
 cart = pd.read_csv("./data/cart_dashboard_52.csv", low_memory=False)
 
-act['timestamp'] = pd.to_datetime(act['timestamp'])
 act['product_id'] = act['product_id'].apply(lambda x: int(float(x)) if x != '-' else x)
 cart['product_id'] = cart['product_id'].apply(lambda x: int(float(x)) if x != '-' else x)
 ans['question'] = ans['question'].apply(lambda x: x.replace('.', ' '))
