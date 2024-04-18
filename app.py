@@ -721,6 +721,7 @@ def plot_by_experiment(input_dd, grouped_parameter, *selected_options):
                                                  merged_data['base'], merged_data['product_openers'], merged_data['Conversion'])],
                 hoverinfo='text',  # Use 'text' for hover information
                 textposition='inside',
+                marker_color='#b73c3f'
             )
         )
         
@@ -762,6 +763,7 @@ def plot_by_experiment(input_dd, grouped_parameter, *selected_options):
                                              merged_data['base'],merged_data['product_buyers'], merged_data['Conversion'])],
                 hoverinfo='text',  # Use 'text' for hover information
                 textposition='inside',
+                marker_color='#b73c3f',
             )
         )
     
@@ -802,6 +804,7 @@ def plot_by_experiment(input_dd, grouped_parameter, *selected_options):
                                              merged_data['quantity_total'],merged_data['quantity_products'])],
                 hoverinfo='text',  # Use 'text' for hover information
                 textposition='inside',
+                marker_color='#b73c3f',
             )
         )
     
@@ -824,6 +827,7 @@ def plot_by_experiment(input_dd, grouped_parameter, *selected_options):
                                              merged_data['amount_total'],merged_data['amount_products'])],
                 hoverinfo='text',  # Use 'text' for hover information
                 textposition='inside',
+                marker_color='#b73c3f',
             )
         )
         # Update the layout to adjust the appearance and the axes
