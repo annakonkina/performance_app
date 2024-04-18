@@ -47,18 +47,19 @@ def b64_image(image_filename):
         image = f.read()
         return 'data:image/png;base64,' + base64.b64encode(image).decode('utf-8')
 
-load_figure_template("superhero")
+load_figure_template("JOURNAL")
 
 app = Dash(__name__, 
-           external_stylesheets=[dbc.themes.SUPERHERO, dbc_css],
+           external_stylesheets=[dbc.themes.JOURNAL, dbc_css],
           meta_tags=[
               {"name": "viewport", "content": "width=device-width, initial-scale=1"}
           ],
       )
+
 # Reference the underlying flask app (Used by gunicorn webserver in Heroku production deployment)
 server = app.server 
 # Enable Whitenoise for serving static files from Heroku (the /static folder is seen as root by Heroku) 
-server.wsgi_app = WhiteNoise(server.wsgi_app, root='static/') 
+server.wsgi_app = WhiteNoise(server.wsgi_app, root='static/')
 
 # Example usage
 vis = pd.read_csv("./data/vis_dashboard_52.csv", low_memory=False)
@@ -66,6 +67,7 @@ act = pd.read_csv("./data/act_dashboard_52.csv", low_memory=False)
 ans = pd.read_csv("./data/ans_dashboard_52.csv", low_memory=False)
 cart = pd.read_csv("./data/cart_dashboard_52.csv", low_memory=False)
 
+act['timestamp'] = pd.to_datetime(act['timestamp'])
 act['product_id'] = act['product_id'].apply(lambda x: int(float(x)) if x != '-' else x)
 cart['product_id'] = cart['product_id'].apply(lambda x: int(float(x)) if x != '-' else x)
 ans['question'] = ans['question'].apply(lambda x: x.replace('.', ' '))
@@ -119,7 +121,7 @@ if len(open_questions) == 0:
 
 heading = html.Div([
     html.Img(src=b64_image(image_path), style={'width': '100%', 'height': 'auto'}),
-    html.H1("Project name: 52", className="bg-primary")
+    html.H2("Project name: 52", style = {'text-align':'center'}, className="centered-h2")#className="bg-secondary",
     ],
 )
 
@@ -139,7 +141,7 @@ breakouts_filter = dbc.Card(
                         optionHeight=screener_options_height[q],
                         id=f"{q}")],
                         width = 2,
-                        className='dbc'
+                        className="dbc",
                             ) for q in list(screener_options.keys())[:6]],
                     *[dbc.Col(
                         [html.Label([q.capitalize()], style={'font-weight': 'bold', "text-align": "center"}),
@@ -150,7 +152,7 @@ breakouts_filter = dbc.Card(
                         optionHeight=screener_options_height[q],
                         id=f"{q}")],
                         width = 2,
-                        className='dbc'
+                        className="dbc",
                             ) for q in list(screener_options.keys())[6:]],
 
                         ]
@@ -158,7 +160,7 @@ breakouts_filter = dbc.Card(
             className="transparent-card",
             style={'background-color': 'transparent', 
                'box-shadow': 'none', 
-               'border': '1px solid #f28718',
+               'border': '1px solid #FFFFF',
                 'padding': '15px',
               },
         )
@@ -188,7 +190,7 @@ performance_row = dbc.Container([
             className="h-100 transparent-card",
             style={'background-color': 'transparent', 
                'box-shadow': 'none', 
-               'border': '1px solid #0F2537',
+               'border': '1px solid #FFFFFF',
                    'padding': '15px',
                    'height':'auto',
               }
@@ -257,7 +259,7 @@ performance_table_row = dbc.Container([
                 className="transparent-card",
                 style={'background-color': 'transparent', 
                    'box-shadow': 'none', 
-                   'border': '1px solid #0F2537',
+                   'border': '1px solid #FFFFFF',
                        'height':'auto',
                        'padding': '15px',
                   }
@@ -320,7 +322,7 @@ ps_wc_row = dbc.Container([
             className="h-100 transparent-card",
             style={'background-color': 'transparent', 
                'box-shadow': 'none', 
-               'border': '1px solid #0F2537',
+               'border': '1px solid #FFFFFF',
                    'padding': '15px',
                    'height':'auto'
               }
@@ -557,309 +559,369 @@ def plot_by_experiment(input_dd, grouped_parameter, *selected_options):
     valid_user_ids = set(ans['uid'].unique())
 
     for question, selected_answers in zip(questions_to_filter, selected_options_per_question):
-        if 'All options' not in selected_answers or len(selected_answers) == 0:
+        if 'All options' not in selected_answers and len(selected_answers) != 0:
             # Filter responses to get user_ids for current question based on selected answers
             filtered_user_ids = set(ans[(ans['question'] == question) 
                                         & (ans['answer'].isin(selected_answers))]['uid'].unique())
             
             # Intersection with valid_user_ids to progressively narrow down the user_ids based on each question's selected answers
             valid_user_ids = valid_user_ids.intersection(filtered_user_ids)
-
-    # Now filter the logs DataFrame to keep only rows with user_ids in valid_user_ids
-    df_actions = df_actions[df_actions['uid'].isin(valid_user_ids)]
-
-    # CONTINUE WITH FILTERED DATA
-    base = df_actions.groupby('experiment_name').uid.nunique().reset_index()
-    # openers of any product
-    df_openers = df_actions[(df_actions.action == 'view') 
-                            & (df_actions.page_type == 'product')]
-    #buyeres of any product
-    all_buyers = df_actions[(df_actions.action == 'reached') & (df_actions.page_type == 'checkout')].uid.unique()
-    # any openers buyers
-    openers_buyers = df_actions[df_actions['is_opener_buyer'] == 'opened_bought']['uid'].unique()
-    # in case when people should open product page to buy and All brands/SKUs selected, opening rate will be 100%. 
-    # if buying is obligatory and All brands/SKUs selected, buying rate will be 100%. 
+        else:
+            valid_user_ids = ans.uid.unique()
+            
+    if len(valid_user_ids) > 0:
+        # Now filter the logs DataFrame to keep only rows with user_ids in valid_user_ids
+        df_actions = df_actions[df_actions['uid'].isin(valid_user_ids)]
     
-    nb_pr_openers_per_leg = (
-        df_openers[df_openers[grouped_parameter].isin(radio_filter)]
-        .groupby('experiment_name')
-        .uid.nunique().sort_values(ascending = False).reset_index()
-    )
-    
-    # total buyers
-    nb_pr_buyers_per_leg = (
-        cart[(cart.uid.isin(all_buyers)) 
-             & (cart[grouped_parameter].isin(radio_filter))]
-        .groupby('experiment_name')
-        .uid.nunique().sort_values(ascending = False).reset_index()
-    )
-    
-    #openers buyers
-    nb_pr_openers_buyers_per_leg = (
-        cart[(cart.uid.isin(openers_buyers)) 
-             & (cart[grouped_parameter].isin(radio_filter))]
-        .groupby('experiment_name')
-        .uid.nunique().sort_values(ascending = False).reset_index()
-    )
-    
-    quantity_total = (
-        cart[(cart.uid.isin(all_buyers))]
-        .groupby('experiment_name')
-        .quantity.sum().reset_index()
-    )
-    quantity_products = (
-        cart[(cart.uid.isin(all_buyers)) & (cart[grouped_parameter].isin(radio_filter))]
-        .groupby('experiment_name')
-        .quantity.sum().reset_index()
-    )
-    amount_total = (
-        cart[(cart.uid.isin(all_buyers))]
-        .groupby('experiment_name')
-        .amount.sum().reset_index()
-    )
-    amount_products = (
-        cart[(cart.uid.isin(all_buyers)) & (cart[grouped_parameter].isin(radio_filter))]
-        .groupby('experiment_name')
-        .amount.sum().reset_index()
-    )
-    
-    amount_set = {}
-    quantity_set = {}
-    for exp in cart.experiment_name.unique():
-        amount_set[exp] = (
-        cart[(cart.uid.isin(all_buyers)) 
-             & (cart['experiment_name'] == exp)
-             & (cart[grouped_parameter].isin(radio_filter))]
-        .groupby('uid')
-        .amount.sum()
-        .values.tolist()
-        )
-        quantity_set[exp] = (
-        cart[(cart.uid.isin(all_buyers)) 
-             & (cart['experiment_name'] == exp)
-             & (cart[grouped_parameter].isin(radio_filter))]
-        .groupby('uid')
-        .quantity.sum()
-        .values.tolist()
-        )
-     
-    
-    merged_data = (
-        pd.merge(nb_pr_openers_per_leg, 
-                 nb_pr_buyers_per_leg, 
-                 on='experiment_name', 
-                 suffixes=('_product_openers', '_product_buyers'))
-    ).rename(columns = {'uid_product_openers':'product_openers', 'uid_product_buyers':'product_buyers'})
-    merged_data = merged_data.merge(nb_pr_openers_buyers_per_leg, 
-                                    on='experiment_name').rename(columns = {'uid':'product_openers_buyers'})
-    merged_data = merged_data.merge(base, how = 'left',
-                                    on='experiment_name').rename(columns = {'uid':'base'})
-    
-    for col, metric, df in zip(['quantity_total', 'quantity_products', 'amount_total', 'amount_products'],
-                             ['quantity', 'quantity', 'amount', 'amount'],
-                            [quantity_total, quantity_products, amount_total, amount_products]):
-        merged_data = merged_data.merge(df, how = 'left',
-                                    on='experiment_name').rename(columns = {metric:col})
+        # CONTINUE WITH FILTERED DATA
+        base = df_actions.groupby('experiment_name').uid.nunique().reset_index()
+        # openers of any product
+        df_openers = df_actions[(df_actions.action == 'view') 
+                                & (df_actions.page_type == 'product')]
+        #buyeres of any product
+        all_buyers = df_actions[(df_actions.action == 'reached') & (df_actions.page_type == 'checkout')].uid.unique()
+        # any openers buyers
+        openers_buyers = df_actions[df_actions['is_opener_buyer'] == 'opened_bought']['uid'].unique()
+        # in case when people should open product page to buy and All brands/SKUs selected, opening rate will be 100%. 
+        # if buying is obligatory and All brands/SKUs selected, buying rate will be 100%. 
         
-    
-    merged_data['Opening rate'] = np.round(merged_data['product_openers']/merged_data['base']*100, 2)
-    merged_data['Buying rate'] = np.round(merged_data['product_buyers']/merged_data['base']*100, 2)
-    merged_data['Conversion'] = np.round(merged_data['product_openers_buyers']/merged_data['product_openers']*100, 2)
-    merged_data['Share of choices'] = np.round(merged_data['quantity_products']/merged_data['quantity_total']*100, 2)
-    merged_data['Share of value'] = np.round(merged_data['amount_products']/merged_data['amount_total']*100, 2)
-    
-    merged_data['mean_quantity'] = np.round(merged_data['experiment_name'].apply(lambda x: np.mean(quantity_set[x])), 2)
-    merged_data['mean_amount'] = np.round(merged_data['experiment_name'].apply(lambda x: np.mean(amount_set[x])), 2)
-    
-    # merged_data['Value per 100 respondents'] = merged_data['Buying rate'] * merged_data['mean_amount']
-    # merged_data['Volume per 100 respondents'] = merged_data['Buying rate'] * merged_data['mean_quantity']
-    
-    merged_data['experiment_name'] = merged_data['experiment_name'].apply(lambda t: "<br>".join(wrap(t, 25)))
-    
-    stat_test_dict = {}
-    for k, col, b in zip(['Opening rate_stat', 'Buying rate_stat', 'Share of choices_stat', 'Share of value_stat'],
-                          ['product_openers', 'product_buyers', 'quantity_products', 'amount_products'],
-                         ['base', 'base', 'quantity_total', 'amount_total']
-                        ):
-        stat_test_dict[k] = {}
-
-        for exp in merged_data['experiment_name'].unique():
+        nb_pr_openers_per_leg = (
+            df_openers[df_openers[grouped_parameter].isin(radio_filter)]
+            .groupby('experiment_name')
+            .uid.nunique().sort_values(ascending = False).reset_index()
+        )
         
-            stat_test_dict[k][exp] = {
-                'number':merged_data.query('experiment_name == @exp')[col].unique()[0],
-                'base':merged_data.query('experiment_name == @exp')[b].unique()[0],
-                'stat':[],
-            }
-    
-    stat_letters = dict(zip(merged_data.experiment_name.unique(), 
-                    string.ascii_uppercase[:merged_data.experiment_name.nunique()]))
-    stat_test_dict = stat_tests_proportions(stat_test_dict, stat_letters, no_stat_cols=[], alpha = 0.05)
-    
-    for k in stat_test_dict.keys():
-        merged_data[k] = merged_data['experiment_name'].apply(lambda x: stat_test_dict[k][x]['stat'])
-
-    
-    ## FIGURE 1: OPENING BUYING CONVERSION
-    fig = go.Figure()
-
-    # Add the new ratio line with a secondary y-axis
-    fig.add_trace(
-        go.Bar(
-            x=merged_data['experiment_name'],
-            y=merged_data['Opening rate'],
-            name='Opening rate',
-            yaxis='y',
-            text = [f"{opr:.2f}%<br>{stt}"  # Rounded rate for display on the bar
-              for opr, stt in zip(merged_data['Opening rate'], merged_data['Opening rate_stat'])],
-            hovertext=[f"Experiment: {exp}<br>Opening Rate: {rate}%<br>Total uids: {uids}<br>Nb openers: {nb}<br>Conversion: {conv}%" 
-              for exp, rate, uids, nb, conv in zip(merged_data['experiment_name'], merged_data['Opening rate'], 
-                                             merged_data['base'], merged_data['product_openers'], merged_data['Conversion'])],
-            hoverinfo='text',  # Use 'text' for hover information
-            textposition='inside',
+        # total buyers
+        nb_pr_buyers_per_leg = (
+            cart[(cart.uid.isin(all_buyers)) 
+                 & (cart[grouped_parameter].isin(radio_filter))]
+            .groupby('experiment_name')
+            .uid.nunique().sort_values(ascending = False).reset_index()
         )
-    )
-    
-    fig.update_layout(
-        title='Opening Rates',
-        # legend=dict(
-        #     orientation="h",
-        #      x = 1, 
-        #      y = 120,
-        #      yanchor="top",
-        #      xanchor="center",
-        # ),
-        xaxis=dict(
-            title='Experiment Name',
-            tickvals=merged_data['experiment_name'],  # Set the tick values to the experiment names
-            ticktext=[f'{exp} ({stat_letters[exp]})<br>{nb}' for exp, nb in zip(merged_data['experiment_name'],
-                                                                               merged_data['base'])]
-        ),
-        yaxis=dict(
-            title='Rate, %',
-        ),
-        margin=dict(t=100, b=0, l=0, r=0),
-        plot_bgcolor='rgba(255,255,255,0)',  # Light background for the plot area
-        paper_bgcolor='rgba(0,0,0,0)',  # Transparent background for the entire figure
         
-    )
-    
-    fig2 = go.Figure()
-    fig2.add_trace(
-        go.Bar(
-            x=merged_data['experiment_name'],
-            y=merged_data['Buying rate'],
-            name='Buying rate',
-            yaxis='y',
-            text = [f"{opr:.2f}%<br>{stt}"  # Rounded rate for display on the bar
-              for opr, stt in zip(merged_data['Buying rate'], merged_data['Buying rate_stat'])],
-            hovertext=[f"Experiment: {exp}<br>Buying Rate: {rate}%<br>Total uids: {uids}<br>Nb buyers: {nb}<br>Conversion: {conv}%" 
-              for exp, rate, uids, nb, conv in zip(merged_data['experiment_name'], merged_data['Buying rate'], 
-                                         merged_data['base'],merged_data['product_buyers'], merged_data['Conversion'])],
-            hoverinfo='text',  # Use 'text' for hover information
-            textposition='inside',
+        #openers buyers
+        nb_pr_openers_buyers_per_leg = (
+            cart[(cart.uid.isin(openers_buyers)) 
+                 & (cart[grouped_parameter].isin(radio_filter))]
+            .groupby('experiment_name')
+            .uid.nunique().sort_values(ascending = False).reset_index()
         )
-    )
-
-    fig2.update_layout(
-        title='Buying Rates',
-        xaxis=dict(
-            title='Experiment Name',
-            tickvals=merged_data['experiment_name'],  # Set the tick values to the experiment names
-            ticktext=[f'{exp} ({stat_letters[exp]})<br>{nb}' for exp, nb in zip(merged_data['experiment_name'],
-                                                                               merged_data['base'])]
-        ),
-        yaxis=dict(
-            title='Rate, %',
-        ),
-        margin=dict(t=100, b=0, l=0, r=0),
-        plot_bgcolor='rgba(255,255,255,0)',  # Light background for the plot area
-        paper_bgcolor='rgba(0,0,0,0)',  # Transparent background for the entire figure
         
-    )
-    
-    
-    # # FIGURE 2: SHARE OF CHOICES SHARE OF VALUE
-    fig3 = go.Figure()
-    
-    # Add the first bar trace for 'Share of choices'
-    fig3.add_trace(
-        go.Bar(
-            x=merged_data['experiment_name'],
-            y=merged_data['Share of choices'],
-            name='Share of choices',
-#             marker=dict(color='rgba(50, 171, 96, 0.7)'),
-            offsetgroup=1,
-#             width=0.2,
-            text = [f"{opr:.2f}%<br>{stt}"  # Rounded rate for display on the bar
-              for opr, stt in zip(merged_data['Share of choices'], merged_data['Share of choices_stat'])],
-            hovertext=[f"Experiment: {exp}<br>Share of choices: {rate}%<br>Quantity total: {t}<br>Quantity products: {nb}" 
-              for exp, rate, t, nb in zip(merged_data['experiment_name'], merged_data['Share of choices'], 
-                                         merged_data['quantity_total'],merged_data['quantity_products'])],
-            hoverinfo='text',  # Use 'text' for hover information
-            textposition='inside',
+        quantity_total = (
+            cart[(cart.uid.isin(all_buyers))]
+            .groupby('experiment_name')
+            .quantity.sum().reset_index()
         )
-    )
-
-    fig4 = go.Figure()
-    # Add the second bar trace for 'Share of value'
-    # Note: This will automatically create a secondary y-axis on the right
-    fig4.add_trace(
-        go.Bar(
-            x=merged_data['experiment_name'],
-            y=merged_data['Share of value'],
-            name='Share of value',
-#             marker=dict(color='rgba(219, 64, 82, 0.7)'),  # Example color, set your own
-            offsetgroup=2,
-#             width=0.2,
-            yaxis='y',
-            text = [f"{opr:.2f}%<br>{stt}"  # Rounded rate for display on the bar
-              for opr, stt in zip(merged_data['Share of value'], merged_data['Share of value_stat'])],
-            hovertext=[f"Experiment: {exp}<br>Share of value: {rate}%<br>Amount total: {t}<br>Amount products: {np.round(nb, 2)}" 
-              for exp, rate, t, nb in zip(merged_data['experiment_name'], merged_data['Share of value'], 
-                                         merged_data['amount_total'],merged_data['amount_products'])],
-            hoverinfo='text',  # Use 'text' for hover information
-            textposition='inside',
+        quantity_products = (
+            cart[(cart.uid.isin(all_buyers)) & (cart[grouped_parameter].isin(radio_filter))]
+            .groupby('experiment_name')
+            .quantity.sum().reset_index()
         )
-    )
-    # Update the layout to adjust the appearance and the axes
-    fig3.update_layout(
-        title='Share of Choices',
-        barmode='group',  # This ensures that bars are grouped next to each other
-        # bargap=0.1,  # Space between bars within a group
-        # bargroupgap=0.05,  # Space between groups
-        # legend=dict(
-        #     orientation="h",
-        #      x = 1, y = 120,
-        #      yanchor="top",
-        #      xanchor="center",
-        # ),
-        yaxis=dict(
-            title='Share, %',
-#             titlefont=dict(color='rgba(50, 171, 96, 0.7)'), 
-        ),
-        xaxis=dict(
-            title='Experiment Name',
-            tickvals=merged_data['experiment_name'],  # Set the tick values to the experiment names
-            ticktext=[f'{exp} ({stat_letters[exp]})<br>{nb:.2f}' for exp, nb in zip(merged_data['experiment_name'], merged_data['amount_total'])]
-        ),
-        margin=dict(t=100, b=0, l=0, r=0),
-        paper_bgcolor='rgba(0,0,0,0)',
-    )
+        amount_total = (
+            cart[(cart.uid.isin(all_buyers))]
+            .groupby('experiment_name')
+            .amount.sum().reset_index()
+        )
+        amount_products = (
+            cart[(cart.uid.isin(all_buyers)) & (cart[grouped_parameter].isin(radio_filter))]
+            .groupby('experiment_name')
+            .amount.sum().reset_index()
+        )
+        
+        amount_set = {}
+        quantity_set = {}
+        for exp in cart.experiment_name.unique():
+            amount_set[exp] = (
+            cart[(cart.uid.isin(all_buyers)) 
+                 & (cart['experiment_name'] == exp)
+                 & (cart[grouped_parameter].isin(radio_filter))]
+            .groupby('uid')
+            .amount.sum()
+            .values.tolist()
+            )
+            quantity_set[exp] = (
+            cart[(cart.uid.isin(all_buyers)) 
+                 & (cart['experiment_name'] == exp)
+                 & (cart[grouped_parameter].isin(radio_filter))]
+            .groupby('uid')
+            .quantity.sum()
+            .values.tolist()
+            )
+         
+        
+        merged_data = (
+            pd.merge(nb_pr_openers_per_leg, 
+                     nb_pr_buyers_per_leg, 
+                     on='experiment_name', 
+                     suffixes=('_product_openers', '_product_buyers'))
+        ).rename(columns = {'uid_product_openers':'product_openers', 'uid_product_buyers':'product_buyers'})
+        merged_data = merged_data.merge(nb_pr_openers_buyers_per_leg, 
+                                        on='experiment_name').rename(columns = {'uid':'product_openers_buyers'})
+        merged_data = merged_data.merge(base, how = 'left',
+                                        on='experiment_name').rename(columns = {'uid':'base'})
+        
+        for col, metric, df in zip(['quantity_total', 'quantity_products', 'amount_total', 'amount_products'],
+                                 ['quantity', 'quantity', 'amount', 'amount'],
+                                [quantity_total, quantity_products, amount_total, amount_products]):
+            merged_data = merged_data.merge(df, how = 'left',
+                                        on='experiment_name').rename(columns = {metric:col})
+            
+        
+        merged_data['Opening rate'] = np.round(merged_data['product_openers']/merged_data['base']*100, 2)
+        merged_data['Buying rate'] = np.round(merged_data['product_buyers']/merged_data['base']*100, 2)
+        merged_data['Conversion'] = np.round(merged_data['product_openers_buyers']/merged_data['product_openers']*100, 2)
+        merged_data['Share of choices'] = np.round(merged_data['quantity_products']/merged_data['quantity_total']*100, 2)
+        merged_data['Share of value'] = np.round(merged_data['amount_products']/merged_data['amount_total']*100, 2)
+        
+        merged_data['mean_quantity'] = np.round(merged_data['experiment_name'].apply(lambda x: np.mean(quantity_set[x])), 2)
+        merged_data['mean_amount'] = np.round(merged_data['experiment_name'].apply(lambda x: np.mean(amount_set[x])), 2)
+        
+        # merged_data['Value per 100 respondents'] = merged_data['Buying rate'] * merged_data['mean_amount']
+        # merged_data['Volume per 100 respondents'] = merged_data['Buying rate'] * merged_data['mean_quantity']
+        
+        merged_data['experiment_name'] = merged_data['experiment_name'].apply(lambda t: "<br>".join(wrap(t, 25)))
+        merged_data = merged_data.sort_values('experiment_name')
+        
+        stat_test_dict = {}
+        for k, col, b in zip(['Opening rate_stat', 'Buying rate_stat', 'Share of choices_stat', 'Share of value_stat'],
+                              ['product_openers', 'product_buyers', 'quantity_products', 'amount_products'],
+                             ['base', 'base', 'quantity_total', 'amount_total']
+                            ):
+            stat_test_dict[k] = {}
     
-    fig4.update_layout(
-        title='Share of Value',
-        barmode='group',  # This ensures that bars are grouped next to each other
-        yaxis=dict(
-            title='Share, %',
-        ),
-        xaxis=dict(
-            title='Experiment Name',
-            tickvals=merged_data['experiment_name'],  # Set the tick values to the experiment names
-            ticktext=[f'{exp} ({stat_letters[exp]})<br>{nb}' for exp, nb in zip(merged_data['experiment_name'], merged_data['quantity_total'])]
-        ),
-        margin=dict(t=100, b=0, l=0, r=0),
-        paper_bgcolor='rgba(0,0,0,0)',
-    )
+            for exp in merged_data['experiment_name'].unique():
+            
+                stat_test_dict[k][exp] = {
+                    'number':merged_data.query('experiment_name == @exp')[col].unique()[0],
+                    'base':merged_data.query('experiment_name == @exp')[b].unique()[0],
+                    'stat':[],
+                }
+        
+        stat_letters = dict(zip(merged_data.experiment_name.unique(), 
+                        string.ascii_uppercase[:merged_data.experiment_name.nunique()]))
+        stat_test_dict = stat_tests_proportions(stat_test_dict, stat_letters, no_stat_cols=[], alpha = 0.05)
+        
+        for k in stat_test_dict.keys():
+            merged_data[k] = merged_data['experiment_name'].apply(lambda x: stat_test_dict[k][x]['stat'])
+    
+        
+        ## FIGURE 1: OPENING BUYING CONVERSION
+        fig = go.Figure()
+    
+        # Add the new ratio line with a secondary y-axis
+        fig.add_trace(
+            go.Bar(
+                x=merged_data['experiment_name'],
+                y=merged_data['Opening rate'],
+                name='Opening rate',
+                yaxis='y',
+                text = [f"{opr:.2f}%<br>{stt}"  # Rounded rate for display on the bar
+                  for opr, stt in zip(merged_data['Opening rate'], merged_data['Opening rate_stat'])],
+                hovertext=[f"Experiment: {exp}<br>Opening Rate: {rate}%<br>Total uids: {uids}<br>Nb openers: {nb}<br>Conversion: {conv}%" 
+                  for exp, rate, uids, nb, conv in zip(merged_data['experiment_name'], merged_data['Opening rate'], 
+                                                 merged_data['base'], merged_data['product_openers'], merged_data['Conversion'])],
+                hoverinfo='text',  # Use 'text' for hover information
+                textposition='inside',
+            )
+        )
+        
+        fig.update_layout(
+            title='Opening Rates',
+            # legend=dict(
+            #     orientation="h",
+            #      x = 1, 
+            #      y = 120,
+            #      yanchor="top",
+            #      xanchor="center",
+            # ),
+            xaxis=dict(
+                title='Experiment Name',
+                tickvals=merged_data['experiment_name'],  # Set the tick values to the experiment names
+                ticktext=[f'{exp} ({stat_letters[exp]})<br>{nb}' for exp, nb in zip(merged_data['experiment_name'],
+                                                                                   merged_data['base'])]
+            ),
+            yaxis=dict(
+                title='Rate, %',
+            ),
+            margin=dict(t=100, b=0, l=0, r=0),
+            plot_bgcolor='rgba(255,255,255,0)',  # Light background for the plot area
+            paper_bgcolor='rgba(0,0,0,0)',  # Transparent background for the entire figure
+            
+        )
+        
+        fig2 = go.Figure()
+        fig2.add_trace(
+            go.Bar(
+                x=merged_data['experiment_name'],
+                y=merged_data['Buying rate'],
+                name='Buying rate',
+                yaxis='y',
+                text = [f"{opr:.2f}%<br>{stt}"  # Rounded rate for display on the bar
+                  for opr, stt in zip(merged_data['Buying rate'], merged_data['Buying rate_stat'])],
+                hovertext=[f"Experiment: {exp}<br>Buying Rate: {rate}%<br>Total uids: {uids}<br>Nb buyers: {nb}<br>Conversion: {conv}%" 
+                  for exp, rate, uids, nb, conv in zip(merged_data['experiment_name'], merged_data['Buying rate'], 
+                                             merged_data['base'],merged_data['product_buyers'], merged_data['Conversion'])],
+                hoverinfo='text',  # Use 'text' for hover information
+                textposition='inside',
+            )
+        )
+    
+        fig2.update_layout(
+            title='Buying Rates',
+            xaxis=dict(
+                title='Experiment Name',
+                tickvals=merged_data['experiment_name'],  # Set the tick values to the experiment names
+                ticktext=[f'{exp} ({stat_letters[exp]})<br>{nb}' for exp, nb in zip(merged_data['experiment_name'],
+                                                                                   merged_data['base'])]
+            ),
+            yaxis=dict(
+                title='Rate, %',
+            ),
+            margin=dict(t=100, b=0, l=0, r=0),
+            plot_bgcolor='rgba(255,255,255,0)',  # Light background for the plot area
+            paper_bgcolor='rgba(0,0,0,0)',  # Transparent background for the entire figure
+            
+        )
+        
+        
+        # # FIGURE 2: SHARE OF CHOICES SHARE OF VALUE
+        fig3 = go.Figure()
+        
+        # Add the first bar trace for 'Share of choices'
+        fig3.add_trace(
+            go.Bar(
+                x=merged_data['experiment_name'],
+                y=merged_data['Share of choices'],
+                name='Share of choices',
+    #             marker=dict(color='rgba(50, 171, 96, 0.7)'),
+                offsetgroup=1,
+    #             width=0.2,
+                text = [f"{opr:.2f}%<br>{stt}"  # Rounded rate for display on the bar
+                  for opr, stt in zip(merged_data['Share of choices'], merged_data['Share of choices_stat'])],
+                hovertext=[f"Experiment: {exp}<br>Share of choices: {rate}%<br>Quantity total: {t}<br>Quantity products: {nb}" 
+                  for exp, rate, t, nb in zip(merged_data['experiment_name'], merged_data['Share of choices'], 
+                                             merged_data['quantity_total'],merged_data['quantity_products'])],
+                hoverinfo='text',  # Use 'text' for hover information
+                textposition='inside',
+            )
+        )
+    
+        fig4 = go.Figure()
+        # Add the second bar trace for 'Share of value'
+        # Note: This will automatically create a secondary y-axis on the right
+        fig4.add_trace(
+            go.Bar(
+                x=merged_data['experiment_name'],
+                y=merged_data['Share of value'],
+                name='Share of value',
+    #             marker=dict(color='rgba(219, 64, 82, 0.7)'),  # Example color, set your own
+                offsetgroup=2,
+    #             width=0.2,
+                yaxis='y',
+                text = [f"{opr:.2f}%<br>{stt}"  # Rounded rate for display on the bar
+                  for opr, stt in zip(merged_data['Share of value'], merged_data['Share of value_stat'])],
+                hovertext=[f"Experiment: {exp}<br>Share of value: {rate}%<br>Amount total: {t}<br>Amount products: {np.round(nb, 2)}" 
+                  for exp, rate, t, nb in zip(merged_data['experiment_name'], merged_data['Share of value'], 
+                                             merged_data['amount_total'],merged_data['amount_products'])],
+                hoverinfo='text',  # Use 'text' for hover information
+                textposition='inside',
+            )
+        )
+        # Update the layout to adjust the appearance and the axes
+        fig3.update_layout(
+            title='Share of Choices',
+            barmode='group',  # This ensures that bars are grouped next to each other
+            # bargap=0.1,  # Space between bars within a group
+            # bargroupgap=0.05,  # Space between groups
+            # legend=dict(
+            #     orientation="h",
+            #      x = 1, y = 120,
+            #      yanchor="top",
+            #      xanchor="center",
+            # ),
+            yaxis=dict(
+                title='Share, %',
+    #             titlefont=dict(color='rgba(50, 171, 96, 0.7)'), 
+            ),
+            xaxis=dict(
+                title='Experiment Name',
+                tickvals=merged_data['experiment_name'],  # Set the tick values to the experiment names
+                ticktext=[f'{exp} ({stat_letters[exp]})<br>{nb:.2f}' for exp, nb in zip(merged_data['experiment_name'], merged_data['amount_total'])]
+            ),
+            margin=dict(t=100, b=0, l=0, r=0),
+            paper_bgcolor='rgba(0,0,0,0)',
+        )
+        
+        fig4.update_layout(
+            title='Share of Value',
+            barmode='group',  # This ensures that bars are grouped next to each other
+            yaxis=dict(
+                title='Share, %',
+            ),
+            xaxis=dict(
+                title='Experiment Name',
+                tickvals=merged_data['experiment_name'],  # Set the tick values to the experiment names
+                ticktext=[f'{exp} ({stat_letters[exp]})<br>{nb}' for exp, nb in zip(merged_data['experiment_name'], merged_data['quantity_total'])]
+            ),
+            margin=dict(t=100, b=0, l=0, r=0),
+            paper_bgcolor='rgba(0,0,0,0)',
+        )
+    else:
+        fig = go.Figure()
+        fig.update_layout(
+            title='Opening Rates',
+            xaxis=dict(
+                title='Experiment Name',
+            ),
+            yaxis=dict(
+                title='Rate, %',
+            ),
+            margin=dict(t=100, b=0, l=0, r=0),
+            plot_bgcolor='rgba(255,255,255,0)',  # Light background for the plot area
+            paper_bgcolor='rgba(0,0,0,0)',  # Transparent background for the entire figure
+        )
+        fig2 = go.Figure()
+        fig2.update_layout(
+            title='Buying Rates',
+            xaxis=dict(
+                title='Experiment Name',
+            ),
+            yaxis=dict(
+                title='Rate, %',
+            ),
+            margin=dict(t=100, b=0, l=0, r=0),
+            plot_bgcolor='rgba(255,255,255,0)',  # Light background for the plot area
+            paper_bgcolor='rgba(0,0,0,0)',  # Transparent background for the entire figure
+            
+        )
+        # # FIGURE 2: SHARE OF CHOICES SHARE OF VALUE
+        fig3 = go.Figure()
+        fig4 = go.Figure()
+        fig3.update_layout(
+            title='Share of Choices',
+            barmode='group', 
+            yaxis=dict(
+                title='Share, %',
+    #             titlefont=dict(color='rgba(50, 171, 96, 0.7)'), 
+            ),
+            xaxis=dict(
+                title='Experiment Name',
+            ),
+            margin=dict(t=100, b=0, l=0, r=0),
+            paper_bgcolor='rgba(0,0,0,0)',
+        )
+        fig4.update_layout(
+            title='Share of Value',
+            barmode='group',  # This ensures that bars are grouped next to each other
+            yaxis=dict(
+                title='Share, %',
+            ),
+            xaxis=dict(
+                title='Experiment Name',
+            ),
+            margin=dict(t=100, b=0, l=0, r=0),
+            paper_bgcolor='rgba(0,0,0,0)',
+        )
     
     return fig, fig2, fig3, fig4
 
@@ -886,41 +948,56 @@ def create_table(input_metric, grouped_parameter, *selected_options):
     valid_user_ids = set(ans['uid'].unique())
 
     for question, selected_answers in zip(questions_to_filter, selected_options_per_question):
-        if 'All options' not in selected_answers or len(selected_answers) == 0:
+        if 'All options' not in selected_answers and len(selected_answers) != 0:
             # Filter responses to get user_ids for current question based on selected answers
             filtered_user_ids = set(ans[(ans['question'] == question) 
                                         & (ans['answer'].isin(selected_answers))]['uid'].unique())
             
             # Intersection with valid_user_ids to progressively narrow down the user_ids based on each question's selected answers
             valid_user_ids = valid_user_ids.intersection(filtered_user_ids)
+        else:
+            valid_user_ids = ans.uid.unique()
 
-    # Now filter the logs DataFrame to keep only rows with user_ids in valid_user_ids
-    df_actions = df_actions[df_actions['uid'].isin(valid_user_ids)]
-    df_cart = df_cart[df_cart['uid'].isin(valid_user_ids)]
-    
-    # GENERATING TABLE NOW
-    if input_metric == 'Opening rate':
-        df = build_opening_rate_table(df_actions, grouped_parameter, is_percent=True)
-        df = df.reset_index().rename(columns = {'index':'Opening rate'})
-        df['Opening rate'] = df['Opening rate'].apply(lambda x: x.strip(', %') if 'Base, %' in x else x)
-    elif input_metric == 'Buying rate':
-        df = build_buying_rate_table(df_actions, df_cart, grouped_parameter, is_percent=True)
-        df = df.reset_index().rename(columns = {'index':'Buying rate'})
-        df['Buying rate'] = df['Buying rate'].apply(lambda x: x.strip(', %') if 'Base, %' in x else x)
-    elif input_metric == 'Share of choices':
-        df = (
-            build_share_table(df_actions, df_cart, 'quantity', grouped_parameter, is_percent=True)
-            .reset_index()
-            .rename(columns = {'index':'Share of choices'})
-        )
-    elif input_metric == 'Share of value':
-        df = (
-            build_share_table(df_actions, df_cart, 'amount', grouped_parameter, is_percent=True)
-            .reset_index()
-            .rename(columns = {'index':'Share of value'})
-        )
+    if len(valid_user_ids) > 0:
+        # Now filter the logs DataFrame to keep only rows with user_ids in valid_user_ids
+        df_actions = df_actions[df_actions['uid'].isin(valid_user_ids)]
+        df_cart = df_cart[df_cart['uid'].isin(valid_user_ids)]
+        
+        # GENERATING TABLE NOW
+        if input_metric == 'Opening rate':
+            df = build_opening_rate_table(df_actions, grouped_parameter, is_percent=True)
+            df = df.reset_index().rename(columns = {'index':'Opening rate'})
+            df['Opening rate'] = df['Opening rate'].apply(lambda x: x.strip(', %') if 'Base, %' in x else x)
+        elif input_metric == 'Buying rate':
+            df = build_buying_rate_table(df_actions, df_cart, grouped_parameter, is_percent=True)
+            df = df.reset_index().rename(columns = {'index':'Buying rate'})
+            df['Buying rate'] = df['Buying rate'].apply(lambda x: x.strip(', %') if 'Base, %' in x else x)
+        elif input_metric == 'Share of choices':
+            df = (
+                build_share_table(df_actions, df_cart, 'quantity', grouped_parameter, is_percent=True)
+                .reset_index()
+                .rename(columns = {'index':'Share of choices'})
+            )
+        elif input_metric == 'Share of value':
+            df = (
+                build_share_table(df_actions, df_cart, 'amount', grouped_parameter, is_percent=True)
+                .reset_index()
+                .rename(columns = {'index':'Share of value'})
+            )
+        else:
+            df = pd.DataFrame()
     else:
-        df = pd.DataFrame()
+        # GENERATING TABLE NOW
+        if input_metric == 'Opening rate':
+            df = pd.DataFrame({'Opening rate':['-']}.update({exp:['-'] for exp in act.experiment_name.unique()}))
+        elif input_metric == 'Buying rate':
+            df = pd.DataFrame({'Buying rate':['-']}.update({exp:['-'] for exp in act.experiment_name.unique()}))
+        elif input_metric == 'Share of choices':
+            df = pd.DataFrame({'Share of choices':['-']}.update({exp:['-'] for exp in act.experiment_name.unique()}))
+        elif input_metric == 'Share of value':
+            df = pd.DataFrame({'Share of value':['-']}.update({exp:['-'] for exp in act.experiment_name.unique()}))
+        else:
+            df = pd.DataFrame()
      
     
     output = dash_table.DataTable(
@@ -932,7 +1009,7 @@ def create_table(input_metric, grouped_parameter, *selected_options):
             # Style the headers of the table
             style_header={
             'fontWeight': 'bold',
-            'backgroundColor': ' #f0af72',  # You can change this to any color you like
+            'backgroundColor': ' #ffa6a6',  # You can change this to any color you like
             'color': 'black'  # Adjust text color for better readability
             },
             
@@ -985,119 +1062,171 @@ def bar_ps_plot(input_exp, grouped_parameter, input_question, input_dd, *selecte
     # Start with all user_ids
     valid_user_ids = set(df_answers['uid'].unique())
 
-    for q, selected_answers in zip(questions_to_filter, selected_options_per_question):
-        if 'All options' not in selected_answers or len(selected_answers) == 0:
+    for question, selected_answers in zip(questions_to_filter, selected_options_per_question):
+        if 'All options' not in selected_answers and len(selected_answers) != 0:
             # Filter responses to get user_ids for current question based on selected answers
-            filtered_user_ids = set(ans[(ans['question'] == q) 
-                                        & (ans['answer'].isin(selected_answers))]['uid'].unique())
+            filtered_user_ids = set(df_answers[(df_answers['question'] == question) 
+                                        & (df_answers['answer'].isin(selected_answers))]['uid'].unique())
             
             # Intersection with valid_user_ids to progressively narrow down the user_ids based on each question's selected answers
             valid_user_ids = valid_user_ids.intersection(filtered_user_ids)
+        else:
+            valid_user_ids = valid_user_ids.intersection(df_answers.uid.unique())
 
-    # Now filter the logs DataFrame to keep only rows with user_ids in valid_user_ids
-    df_answers = df_answers[df_answers['uid'].isin(valid_user_ids)]
     
-    base = (
-        df_answers[['uid', 'product_id', 'experiment_name']].drop_duplicates()
-        .groupby('experiment_name').uid.count()
-        .reset_index()
-    )
+    if len(valid_user_ids) > 0:
+        # Now filter the logs DataFrame to keep only rows with user_ids in valid_user_ids
+        df_answers = df_answers[df_answers['uid'].isin(valid_user_ids)]
+        
+        base = (
+            df_answers[['uid', 'product_id', 'experiment_name']].drop_duplicates()
+            .groupby('experiment_name').uid.count()
+            .reset_index()
+        )
+        
+        grouped_df = (
+            df_answers
+            .groupby(['answer', 'experiment_name']).uid.count()
+            .reset_index().sort_values(by = 'uid', ascending = False)
+        )
+        grouped_df = grouped_df.merge(base, how = 'left', on = 'experiment_name', suffixes = ('','_base'))
+        grouped_df['percent'] = grouped_df['uid']/grouped_df['uid_base']*100
+                    
+        sort_list = grouped_df.groupby('answer', as_index = False).percent.sum().sort_values(by = ['percent'], 
+                                                                ascending = True).answer.values.tolist()
+        grouped_df['answer'] = pd.Categorical(grouped_df['answer'], categories=sort_list, ordered=True)
+        # Sort the DataFrame by the 'column_to_sort'
+        grouped_df = grouped_df.sort_values(['answer', 'experiment_name'])
+
+        exps_dfs = []
+        for exp in grouped_df.experiment_name.unique():
+            exp_df = grouped_df.query('experiment_name == @exp').set_index('answer')[['uid']].rename(columns = {'uid':exp})
+            if len(exp_df) > 0:
+                exps_dfs.append(exp_df)
+        
+        exps_dfs = pd.concat(exps_dfs, axis = 1).fillna(0)
     
-    grouped_df = (
-        df_answers
-        .groupby(['answer', 'experiment_name']).uid.count()
-        .reset_index().sort_values(by = 'uid', ascending = False)
-    )
-    grouped_df = grouped_df.merge(base, how = 'left', on = 'experiment_name', suffixes = ('','_base'))
-    grouped_df['percent'] = grouped_df['uid']/grouped_df['uid_base']*100
+        # minimum base size of 50 resp per experiment:
+        options_to_keep = exps_dfs[(exps_dfs[exps_dfs.columns] >= 50).all(axis=1)].index.values.tolist()
+        grouped_df = grouped_df[grouped_df.answer.isin(options_to_keep)]
+        if len(grouped_df) > 0:    
+            # Now, the tickvals and ticktext will be in the correct order
+            tickvals_and_text = grouped_df.answer.values.tolist()
+        
+            # STAT TESTING
+            exp_letter = dict(zip(grouped_df.experiment_name.unique(), string.ascii_uppercase[:grouped_df.experiment_name.nunique()]))
+            dfs_with_stat = []
+            for opt in grouped_df.answer.unique():
+                opt_df = grouped_df.query('answer == @opt').set_index('experiment_name')
+                all_legs =  [*set(opt_df.index.values)]
+                for t1 in all_legs:
+                    opt_df.loc[t1, 'col_stat'] = '-'
+                    tested_legs = [i for i in all_legs if i != t1]
+                    for t2 in tested_legs:
+                        #DISCRETE DATA
+                        p1, n1, p2, n2 = opt_df.loc[t1, 'uid'], opt_df.loc[t1, 'uid_base'], \
+                                        opt_df.loc[t2, 'uid'], opt_df.loc[t2, 'uid_base']
+        
+                        if p1 != '-' and p2 != '-' and n1 not in ['-', 0] and n2 not in ['-', 0]:
+                            if p1 >= 5 and p2 >= 5:
+                                try:
+                                    if not check_prop(p1, n1, p2, n2): #if not True >> Ha
+                                        opt_df.loc[t1, 'col_stat'] += exp_letter[t2]
+                                except:
+                                    pass
+                dfs_with_stat.append(opt_df)
+        
+            grouped_df = pd.concat(dfs_with_stat).reset_index()
+            grouped_df['col_stat'] = grouped_df['col_stat'].apply(lambda x: ', '.join(sorted(x.strip('-'))) if x != '-' else x)
+            grouped_df['experiment_name'] = grouped_df['experiment_name'].apply(lambda x: f'{x} ({exp_letter[x]})')
+        
+            grouped_df['display_text'] = grouped_df.apply(
+                    lambda row: f"{row['experiment_name']}: {row['percent']:.2f}% {row['col_stat']}", axis=1
+                )
+            
+            colors_list = [
+                '#9b9b9b',
+                '#ee6d6a',
+                '#2C3E50',
+                '#B73C3F',
+                '#b4c7dd',
+                '#cd5050',
                 
-    sort_list = grouped_df.groupby('answer', as_index = False).percent.sum().sort_values(by = ['percent'], 
-                                                            ascending = True).answer.values.tolist()
-    grouped_df['answer'] = pd.Categorical(grouped_df['answer'], categories=sort_list, ordered=True)
-    # Sort the DataFrame by the 'column_to_sort'
-    grouped_df = grouped_df.sort_values(['answer', 'experiment_name'])
+                '#e0e0e0',
+              
+            ]
+            
+            color_map = {exp:c for exp,c in zip(grouped_df.experiment_name.unique(), colors_list[:grouped_df.experiment_name.nunique()])}
+        
+            bar_plot = (
+                px.bar(
+                    grouped_df,
+                    y='answer',
+                    x='percent',
+                    color = 'experiment_name',
+                    text='display_text',
+                    barmode="group",
+                    orientation='h',
+                    labels={'percent':'Repliers, %', 'answer':'Answer'},
+                    title=f"{input_question}",
+                    color_discrete_map=color_map,
+                    # color_discrete_sequence=px.colors.diverging.oxy,
+                    custom_data=['uid', 'experiment_name', 'col_stat', 'uid_base']
+                )
+                .update_traces(
+                    texttemplate='%{text}',  # Format the text display; .2f for 2 decimal places
+                    textposition='inside',  # Position the text inside the bars
+                    insidetextfont={'size':14},
+                    hovertemplate="<br>".join([
+                        "Answer: %{y}",
+                        "Experiment: %{customdata[1]}",
+                        "Percent: %{x:.2f}%",
+                        "Sign. stat difference with: %{customdata[2]}",
+                        "Repliers number: %{customdata[0]}",
+                        "Base (total replies per product per user): %{customdata[3]}",
+                        ])
+                )
+                .update_layout(showlegend=False, 
+                               hoverlabel_align = 'left',
+                               margin=dict(t=30, b=0, l=0, r=0),
+                               paper_bgcolor='rgba(0,0,0,0)',
+                               height = 1200, 
+                               yaxis=dict(
+                                    tickmode='array',  # Set tick mode to 'array'
+                                    tickvals=tickvals_and_text,
+                                    ticktext=tickvals_and_text,
+                                ),
+                              )
+            )
+        else:
+            bar_plot = go.Figure()
+            bar_plot.update_layout(
+                title=f"{input_question}",
+                xaxis=dict(
+                    title='Repliers, %',
+                ),
+                yaxis=dict(
+                    title='Answer',
+                ),
+                margin=dict(t=100, b=0, l=0, r=0),
+                plot_bgcolor='rgba(255,255,255,0)',  # Light background for the plot area
+                paper_bgcolor='rgba(0,0,0,0)',  # Transparent background for the entire figure
+            )
 
-    exps_dfs = []
-    for exp in grouped_df.experiment_name.unique():
-        exp_df = grouped_df.query('experiment_name == @exp').set_index('answer')[['uid']].rename(columns = {'uid':exp})
-        exps_dfs.append(exp_df)
-    exps_dfs = pd.concat(exps_dfs, axis = 1).fillna(0)
-    # minimum base size of 50 resp per experiment:
-    options_to_keep = exps_dfs[(exps_dfs[exps_dfs.columns] >= 50).all(axis=1)].index.values.tolist()
-    grouped_df = grouped_df[grouped_df.answer.isin(options_to_keep)]
-    
-    # Now, the tickvals and ticktext will be in the correct order
-    tickvals_and_text = grouped_df.answer.values.tolist()
-
-    # STAT TESTING
-    exp_letter = dict(zip(grouped_df.experiment_name.unique(), string.ascii_uppercase[:grouped_df.experiment_name.nunique()]))
-    dfs_with_stat = []
-    for opt in grouped_df.answer.unique():
-        opt_df = grouped_df.query('answer == @opt').set_index('experiment_name')
-        all_legs =  [*set(opt_df.index.values)]
-        for t1 in all_legs:
-            opt_df.loc[t1, 'col_stat'] = '-'
-            tested_legs = [i for i in all_legs if i != t1]
-            for t2 in tested_legs:
-                #DISCRETE DATA
-                p1, n1, p2, n2 = opt_df.loc[t1, 'uid'], opt_df.loc[t1, 'uid_base'], \
-                                opt_df.loc[t2, 'uid'], opt_df.loc[t2, 'uid_base']
-
-                if p1 != '-' and p2 != '-' and n1 not in ['-', 0] and n2 not in ['-', 0]:
-                    if p1 >= 5 and p2 >= 5:
-                        try:
-                            if not check_prop(p1, n1, p2, n2): #if not True >> Ha
-                                opt_df.loc[t1, 'col_stat'] += exp_letter[t2]
-                        except:
-                            pass
-        dfs_with_stat.append(opt_df)
-
-    grouped_df = pd.concat(dfs_with_stat).reset_index()
-    grouped_df['col_stat'] = grouped_df['col_stat'].apply(lambda x: ', '.join(sorted(x.strip('-'))) if x != '-' else x)
-    grouped_df['experiment_name'] = grouped_df['experiment_name'].apply(lambda x: f'{x} ({exp_letter[x]})')
-
-    grouped_df['display_text'] = grouped_df.apply(
-            lambda row: f"{row['experiment_name']}: {row['percent']:.2f}% {row['col_stat']}", axis=1
-        )
-    
-    bar_plot = (
-        px.bar(
-            grouped_df,
-            y='answer',
-            x='percent',
-            color = 'experiment_name',
-            text='display_text',
-            barmode="group",
-            orientation='h',
-            labels={'percent':'Repliers, %', 'answer':'Answer'},
+    else:
+        bar_plot = go.Figure()
+        bar_plot.update_layout(
             title=f"{input_question}",
-            custom_data=['uid', 'experiment_name', 'col_stat']
+            xaxis=dict(
+                title='Repliers, %',
+            ),
+            yaxis=dict(
+                title='Answer',
+            ),
+            margin=dict(t=100, b=0, l=0, r=0),
+            plot_bgcolor='rgba(255,255,255,0)',  # Light background for the plot area
+            paper_bgcolor='rgba(0,0,0,0)',  # Transparent background for the entire figure
         )
-        .update_traces(
-            texttemplate='%{text}',  # Format the text display; .2f for 2 decimal places
-            textposition='inside',  # Position the text inside the bars
-            insidetextfont={'size':14},
-            hovertemplate="<br>".join([
-                "Answer: %{y}",
-                "Experiment: %{customdata[1]}",
-                "Percent: %{x:.2f}%",
-                "Sign. stat difference with: %{customdata[2]}"
-                ])
-        )
-        .update_layout(showlegend=False, 
-                       hoverlabel_align = 'left',
-                       margin=dict(t=30, b=0, l=0, r=0),
-                       paper_bgcolor='rgba(0,0,0,0)',
-                       height = 1200, 
-                       yaxis=dict(
-                            tickmode='array',  # Set tick mode to 'array'
-                            tickvals=tickvals_and_text,
-                            ticktext=tickvals_and_text,
-                        ),
-                      )
-    )
-
-    
 
     return bar_plot
 
@@ -1129,16 +1258,18 @@ def wordcloud(input_exp, input_question, n_clicks, n_clicks_reset, added, remove
     # Get the list of questions to filter on
     questions_to_filter = list(screener_options.keys())
     # Start with all user_ids
-    valid_user_ids = set(df_answers['uid'].unique())
+    valid_user_ids = set(ans['uid'].unique())
 
-    for q, selected_answers in zip(questions_to_filter, selected_options_per_question):
-        if 'All options' not in selected_answers or len(selected_answers) == 0:
+    for question, selected_answers in zip(questions_to_filter, selected_options_per_question):
+        if 'All options' not in selected_answers and len(selected_answers) != 0:
             # Filter responses to get user_ids for current question based on selected answers
-            filtered_user_ids = set(ans[(ans['question'] == q) 
+            filtered_user_ids = set(ans[(ans['question'] == question) 
                                         & (ans['answer'].isin(selected_answers))]['uid'].unique())
             
             # Intersection with valid_user_ids to progressively narrow down the user_ids based on each question's selected answers
             valid_user_ids = valid_user_ids.intersection(filtered_user_ids)
+        else:
+            valid_user_ids = ans.uid.unique()
 
     # Now filter the logs DataFrame to keep only rows with user_ids in valid_user_ids
     df_answers = df_answers[df_answers['uid'].isin(valid_user_ids)]
@@ -1185,8 +1316,9 @@ def wordcloud(input_exp, input_question, n_clicks, n_clicks_reset, added, remove
         output = html.P('No data available for building the wordcloud!')
         
     return output
-        
+
 
 # Run flask app
 if __name__ == "__main__": 
     app.run_server(debug=False, host='0.0.0.0', port=8050)
+        
